@@ -1,0 +1,18 @@
+# /opt/canario-nettside/prometheus/prometheus.yml
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Jobb 1: Skrape Prometheus-serveren selv
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Jobb 2: Skrape alle Node Exporters i Swarm (metrikker for VM/OS)
+  - job_name: 'node-exporter'
+    # Bruk Swarm-nettverket til å oppdage alle noder
+    dns_sd_configs:
+      - names: ['tasks.node_exporter']
+        type: 'A'
+        port: 9100

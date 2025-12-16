@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  eminem_web:
+    image: omcr.cs.oslomet.no:443/dungu2896/webserver1/eminem-web:031df9ba
+    ports:
+      - "8080:80"
+    deploy:
+      replicas: 3
+    networks:
+      - web-network
+
+  adele_web:
+    image: omcr.cs.oslomet.no:443/dungu2896/webserver1/adele-web:031df9ba
+    ports:
+      - "8081:80"
+    deploy:
+      replicas: 3
+    networks:
+      - web-network
+
+  unleash:
+    image: unleashorg/unleash-proxy
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      UNLEASH_PROXY_SECRETS: "some-secret"
+      UNLEASH_URL: "https://gitlab.cs.oslomet.no/api/v4/feature_flags/unleash/387"
+      UNLEASH_INSTANCE_ID: "glffct-nZi8bHieEa4MYs69RHVx"
+      UNLEASH_APP_NAME: "*"
+      UNLEASH_API_TOKEN: "56907a2fa53c1d16101d509a10b78e36190b0f918d9f122d"
+      UNLEASH_FETCH_INTERVAL: "10"
+      UNLEASH_CORS_ALLOW_ORIGIN: "*"
+    networks:
+      - web-network
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host/rootfs'
+    ports:
+      - "9100:9100"
+    deploy:
+      mode: global
+    networks:
+      - web-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - /opt/canario-nettside/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    deploy:
+      replicas: 1
+    networks:
+      - web-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    deploy:
+      replicas: 1
+    networks:
+      - web-network
+
+networks:
+  web-network:
+    driver: overlay
