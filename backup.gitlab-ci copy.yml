@@ -1,0 +1,64 @@
+stages:
+  - build
+  - deploy
+
+build-image:
+  stage: build
+  image: docker:29.0.0
+  services:
+    - docker:29.0.0-dind
+
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+  script:
+    # Sett tag basert på commit hash
+    - IMAGE_TAG="$CI_COMMIT_SHORT_SHA"
+
+    # Bygg og push Eminem image med commit-hash tag
+    - docker build -t $CI_REGISTRY_IMAGE/eminem-web:$IMAGE_TAG sites/eminem
+    - docker push $CI_REGISTRY_IMAGE/eminem-web:$IMAGE_TAG
+
+    # Bygg og push Adele image med commit-hash tag
+    - docker build -t $CI_REGISTRY_IMAGE/adele-web:$IMAGE_TAG sites/adele
+    - docker push $CI_REGISTRY_IMAGE/adele-web:$IMAGE_TAG
+
+    # Lagre tag for deploy-stadiet
+    - echo $IMAGE_TAG > image_tag.txt
+  artifacts:
+    paths:
+      - image_tag.txt
+    expire_in: 1 hour
+  only:
+    - main
+
+deploy-stack:
+  stage: deploy
+  image: alpine:latest
+  needs: [build-image]
+
+  before_script:
+    - eval "$(ssh-agent -s)"
+    - echo "$SSH_PK_MANAGER" | base64 -d | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H $MANAGER_SERVER_IP >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+
+  script:
+    # Hent tag fra build-stadiet
+    - IMAGE_TAG=$(cat image_tag.txt)
+
+    # Deploy stack med den nye taggen
+    - |
+      ssh -A $MANAGER_SERVER_USER@$MANAGER_SERVER_IP "
+        ssh $DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP '
+            cd /opt/canario-nettside &&
+            sudo sed -i \"s|eminem-web:.*|eminem-web:$IMAGE_TAG|\" stack.yml &&
+            sudo sed -i \"s|adele-web:.*|adele-web:$IMAGE_TAG|\" stack.yml &&
+            sudo docker stack deploy -c stack.yml min-stack
+        '
+      "
+
+  only:
+    - main
