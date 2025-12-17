@@ -14,15 +14,9 @@ async function fetchFlags() {
     }
 
     const text = await response.text();
+    const data = JSON.parse(text);
 
-    try {
-      const data = JSON.parse(text);
-      console.log("Fetched flags:", data);
-      return data;
-    } catch (jsonErr) {
-      console.error("Response was not valid JSON:", text);
-      return { toggles: [] };
-    }
+    return data;
   } catch (err) {
     console.error("Fetch failed:", err);
     return { toggles: [] };
@@ -34,19 +28,24 @@ async function updateFeatures() {
 
   document.querySelectorAll("[data-feature]").forEach((el) => {
     const flag = flags.toggles.find((f) => f.name === el.dataset.feature);
-    el.style.display = flag?.enabled ? "block" : "none";
+    const isEnabled = flags?.enabled ?? false;
+    el.style.display = isEnabled ? "block" : "none";
 
-    fetch("http://192.168.45.231:5000/logFeature", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        feature: el.dataset.feature,
-        enabled: flag?.enabled,
-        timestamp: new Date().toISOString(),
-      }),
-    }).catch((err) => console.error("Logging feilet:", err));
+    fetchUpdates(feature, isEnabled);
   });
 }
+
+const fetchUpdates = async (feature, isEnabled) => {
+  fetch("http://192.168.45.231:5000/logFeature", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      feature: feature,
+      enabled: isEnabled,
+      timestamp: new Date().toISOString(),
+    }),
+  }).catch((err) => console.error("Logging feilet:", err));
+};
 
 updateFeatures();
 
