@@ -1,8 +1,6 @@
-// URL til ngrok-tunnelen din + /proxy
 const PROXY_URL = "http://192.168.45.231:3000/proxy";
 const AUTH_SECRET = "some-secret";
 
-// Hent feature flags fra proxy
 async function fetchFlags() {
   try {
     const response = await fetch(PROXY_URL, {
@@ -38,7 +36,6 @@ async function updateFeatures() {
     const flag = flags.toggles.find((f) => f.name === el.dataset.feature);
     el.style.display = flag?.enabled ? "block" : "none";
 
-    // ---- Her legger du logging ----
     fetch("http://192.168.45.231:5000/logFeature", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -53,5 +50,5 @@ async function updateFeatures() {
 
 updateFeatures();
 
-// Polling hvert 15. sekund (kan aktiveres hvis ønskelig)
+// Polling hvert 15. sekund
 /* setInterval(updateFeatures, 15000); */
